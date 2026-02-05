@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TagMatch Pro (v1.9 Final) — 遇见同频的人</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'media',
+        theme: { extend: {} }
+    }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
+    #scroll-progress { background: linear-gradient(90deg, #0071e3, #8e44ad, #f56300); height: 3px; width: 0%; position: fixed; top: 0; left: 0; z-index: 9999; transition: width 0.1s; }
+    .skeleton { background: linear-gradient(90deg, rgba(190,190,190,0.2) 25%, rgba(129,129,129,0.24) 37%, rgba(190,190,190,0.2) 63%); background-size: 400% 100%; animation: skeleton-loading 1.4s ease infinite; }
+    @keyframes skeleton-loading { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+    .fade-in-up { animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(30px); }
+    .delay-100 { animation-delay: 0.1s; } .delay-200 { animation-delay: 0.2s; } .delay-300 { animation-delay: 0.3s; }
+    @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+    .page-enter { animation: pageEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .page-exit { animation: pageExit 0.4s ease-in forwards; }
+    @keyframes pageEnter { from { opacity: 0; transform: scale(0.98) translateY(10px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
+    @keyframes pageExit { to { opacity: 0; transform: scale(1.02); filter: blur(4px); } }
+    .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid rgba(0,0,0,0.05); }
+    @media (prefers-color-scheme: dark) { .glass { background: rgba(0, 0, 0, 0.6); border-bottom: 1px solid rgba(255,255,255,0.1); } }
+    .modal-enter { animation: modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .modal-exit { animation: modalSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes modalSlideUp { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes modalSlideDown { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(20px) scale(0.98); } }
+    .bubble-pop-in { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; opacity: 0; transform: scale(0); }
+    @keyframes popIn { to { opacity: 1; transform: scale(1); } }
+    #sphere-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; max-width: 800px; max-height: 800px; perspective: 1000px; touch-action: none; cursor: grab; z-index: 10; }
+    .sphere-tag { position: absolute; top: 50%; left: 50%; transform-style: preserve-3d; white-space: nowrap; will-change: transform, opacity; padding: 6px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px); border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 2px 8px rgba(0,0,0,0.05); font-size: 13px; font-weight: 600; color: #374151; user-select: none; pointer-events: none; }
+    @media (prefers-color-scheme: dark) { .sphere-tag { background: rgba(30, 30, 30, 0.85); border: 1px solid rgba(255,255,255,0.1); color: #e5e7eb; } }
+    .sphere-glow { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 600px; height: 600px; background: radial-gradient(circle, rgba(0, 113, 227, 0.08) 0%, rgba(255,255,255,0) 70%); border-radius: 50%; pointer-events: none; z-index: -1; }
+    @media (prefers-color-scheme: dark) { .sphere-glow { background: radial-gradient(circle, rgba(0, 113, 227, 0.2) 0%, rgba(0,0,0,0) 70%); } }
+    .bubble-received { background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.6); color: #1d1d1f; border-radius: 20px 20px 20px 4px; }
+    @media (prefers-color-scheme: dark) { .bubble-received { background: rgba(40, 40, 40, 0.8); border: 1px solid rgba(255,255,255,0.1); color: #fff; } }
+    .bubble-sent { background: linear-gradient(135deg, #0071e3, #00a0e9); color: white; border-radius: 20px 20px 4px 20px; }
+    .stagger-card { opacity: 0; animation: cardPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    @keyframes cardPop { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+    .spotlight-card { position: relative; overflow: hidden; }
+    .spotlight-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(800px circle at var(--mouse-x) var(--mouse-y), rgba(0, 113, 227, 0.06), transparent 40%); z-index: 0; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+    .spotlight-card:hover::before { opacity: 1; }
+    @media (prefers-color-scheme: dark) { .spotlight-card::before { background: radial-gradient(800px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.08), transparent 40%); } }
+</style>
+</head>
+<body class="antialiased min-h-screen flex flex-col bg-white dark:bg-[#050505] text-[#1d1d1f] dark:text-[#f5f5f7]">
+
+    <div id="scroll-progress"></div>
+    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 transform bg-black/80 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl transition-all duration-500 opacity-0 translate-y-[-20px] pointer-events-none z-[100] flex items-center gap-3"><div class="bg-green-500 rounded-full p-0.5"><svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg></div><span id="toastMsg" class="text-sm font-medium tracking-wide">消息已发送</span></div>
+    <canvas id="bg-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-0 opacity-60 dark:opacity-40 transition-opacity duration-1000"></canvas>
+
+    <nav class="fixed top-0 w-full z-[90] glass transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-6 h-12 flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="window.location.reload()">
+                <div class="w-6 h-6 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black text-xs font-bold">T</div>
+                <span class="font-bold tracking-tight text-lg">TagMatch <span class="text-[#0071e3] text-xs align-top font-mono">Pro v1.9</span></span>
+            </div>
+            <div class="hidden md:flex items-center gap-8 text-sm text-gray-500 dark:text-gray-400 font-medium">
+                <a href="#section-vision" onclick="smoothScroll(event, 'section-vision')" class="hover:text-black dark:hover:text-white transition">愿景</a>
+                <a href="#card-tag-system" onclick="smoothScroll(event, 'card-tag-system')" class="hover:text-black dark:hover:text-white transition">标签体系</a>
+                <a href="#card-safety" onclick="smoothScroll(event, 'card-safety')" class="hover:text-black dark:hover:text-white transition">安全</a>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="#" id="nav-login-link" onclick="goToPage('login')" class="text-sm text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white hidden sm:block">登录</a>
+                <div id="nav-user-profile" class="hidden items-center gap-2 cursor-pointer group">
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-300 group-hover:text-black dark:group-hover:text-white transition">Hi, Hao</span>
+                    <div class="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-100 dark:border-gray-700"><img src="https://api.dicebear.com/7.x/notionists/svg?seed=Hao" alt="User" class="w-full h-full object-cover"></div>
+                </div>
+                <button onclick="openModal()" id="navCtaBtn" class="text-sm bg-black dark:bg-white text-white dark:text-black px-4 py-1.5 rounded-full hover:bg-gray-800 dark:hover:bg-gray-200 transition">开始探索</button>
+            </div>
+        </div>
+    </nav>
+
+    <main id="page-landing" class="flex-1 relative z-10">
+        <section class="relative pt-48 pb-32 px-6 flex flex-col items-center justify-center text-center overflow-hidden min-h-[85vh]">
+            <div id="sphere-container" aria-label="3D Tag Sphere"><div class="sphere-glow"></div></div>
+            <h2 class="fade-in-up text-[#f56300] font-bold text-lg mb-6 tracking-wide relative z-20 pointer-events-none">认识你自己</h2>
+            <h1 class="fade-in-up delay-100 text-6xl md:text-8xl font-bold tracking-tight mb-8 leading-[1.1] relative z-20 pointer-events-none">先懂自己，<br>再遇同频。</h1>
+            <div class="fade-in-up delay-200 max-w-3xl mx-auto mb-12 relative z-20 group">
+                <p class="relative z-20 text-xl text-gray-600 dark:text-gray-300 font-light leading-relaxed bg-white/40 dark:bg-black/40 backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] rounded-[2rem] px-10 py-8 overflow-hidden transition-all duration-500 hover:bg-white/50 dark:hover:bg-black/50 hover:scale-[1.01]">
+                    <span class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/40 to-transparent dark:from-white/5 opacity-50 pointer-events-none rounded-[2rem]"></span>
+                    <span class="relative z-10 block">告别看脸划卡。<span class="font-bold text-[#1d1d1f] dark:text-white inline-block relative">TagMatch</span> 通过深度标签构建你的精神画像，让每一次匹配都有迹可循。</span>
+                </p>
+            </div>
+            <div class="fade-in-up delay-300 flex items-center gap-6 relative z-20">
+                <button onclick="openModal()" class="bg-[#0071e3] text-white text-lg px-8 py-3.5 rounded-full font-medium hover:bg-[#0077ed] transition shadow-xl shadow-blue-500/20">构建我的画像</button>
+                <button onclick="openAlgoModal()" class="text-[#0071e3] text-lg hover:underline flex items-center gap-1">了解匹配算法 <span class="text-base">↗</span></button>
+            </div>
+        </section>
+        <section id="section-vision" class="py-24 px-6 bg-white dark:bg-[#0a0a0a] relative z-20 transition-colors duration-300">
+            <div class="max-w-6xl mx-auto">
+                <div class="mb-20 text-center"><h3 class="text-4xl md:text-6xl font-bold mb-6">为什么选择 TagMatch？</h3><p class="text-gray-500 text-xl font-light">这不只是交友，更是自我探索。</p></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div id="card-tag-system" class="spotlight-card col-span-1 lg:col-span-2 bg-[#f5f5f7] dark:bg-[#151515] rounded-[32px] p-10 md:p-14 flex flex-col justify-between hover:scale-[1.01] transition duration-500 cursor-default" onmousemove="handleSpotlight(event, this)">
+                        <div class="relative z-10"><p class="text-gray-500 font-bold mb-3 text-xs uppercase tracking-widest">TAG SYSTEM</p><h4 class="text-3xl md:text-4xl font-bold mb-4">精准的颗粒度。</h4><p class="text-gray-500 text-base leading-relaxed max-w-md">不是简单的“喜欢电影”，而是“喜欢诺兰的非线性叙事”。我们的标签系统支持层级与同义词，精准捕捉你的每一个兴趣点。</p></div>
+                    </div>
+                    <div class="spotlight-card col-span-1 bg-black dark:bg-[#1a1a1a] text-white rounded-[32px] p-10 md:p-12 flex flex-col justify-between hover:scale-[1.01] transition duration-500 cursor-default shadow-2xl shadow-black/10" onmousemove="handleSpotlight(event, this)">
+                        <div class="relative z-10"><p class="text-gray-400 font-bold mb-3 text-xs uppercase tracking-widest">WHITE-BOX MATCH</p><h4 class="text-3xl font-bold mb-4">拒绝黑箱。</h4><p class="text-gray-400 text-sm leading-relaxed">我们不只要告诉你“匹配成功”，还要告诉你“为什么”。</p></div>
+                    </div>
+                    <div id="card-safety" class="spotlight-card col-span-1 bg-[#f5f5f7] dark:bg-[#151515] rounded-[32px] p-10 md:p-12 flex flex-col hover:scale-[1.01] transition duration-500 cursor-default" onmousemove="handleSpotlight(event, this)">
+                        <div class="relative z-10"><div class="w-14 h-14 bg-white dark:bg-[#252525] rounded-2xl flex items-center justify-center shadow-sm mb-8 text-3xl">🔒</div><h4 class="text-3xl font-bold mb-4">隐私优先。</h4><p class="text-gray-500 text-sm leading-relaxed">敏感标签默认私密。</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <footer class="bg-[#f5f5f7] dark:bg-[#111] py-16 px-6 relative z-20 transition-colors duration-300">
+            <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center text-xs text-gray-500 font-medium">
+                <p>Copyright © 2026 TagMatch. All rights reserved.</p>
+                <div class="flex gap-8 mt-4 md:mt-0"><button onclick="openInfoModal('privacy')" class="hover:text-black dark:hover:text-white hover:underline">隐私政策</button><button onclick="openInfoModal('terms')" class="hover:text-black dark:hover:text-white hover:underline">使用条款</button><button onclick="openInfoModal('contact')" class="hover:text-black dark:hover:text-white hover:underline">联系我们</button></div>
+            </div>
+        </footer>
+    </main>
+
+    <main id="page-match" class="hidden flex-1 pt-24 pb-20 px-6 bg-[#fbfbfd] dark:bg-black transition-colors duration-300">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-12 fade-in-up">
+                <span class="text-xs font-bold text-[#0071e3] uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full">CALCULATION COMPLETE</span>
+                <h2 class="text-3xl md:text-5xl font-bold text-[#1d1d1f] dark:text-white mt-4 mb-3">为你找到 <span id="matchCount">0</span> 位同频伙伴 🎉</h2>
+                <p class="text-gray-500 text-lg">基于关键词：<span id="userTagsSummary" class="text-gray-900 dark:text-gray-200 font-semibold"></span></p>
+            </div>
+            <div id="match-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </div>
+    </main>
+
+    <main id="page-login" class="hidden flex-1 flex items-center justify-center min-h-screen px-6 bg-white">
+        <div class="w-full max-w-[400px] mx-auto text-center fade-in-up">
+            <div class="mb-8"><div class="w-12 h-12 bg-black rounded-full flex items-center justify-center text-white text-lg font-bold mx-auto mb-6">T</div><h2 class="text-3xl font-bold text-[#1d1d1f] mb-2">登录 TagMatch</h2><p class="text-gray-500">继续探索你的精神画像。</p></div>
+            <div class="space-y-4 text-left">
+                <div><input type="email" placeholder="Email or ID" id="loginEmail" class="w-full px-5 py-4 rounded-2xl bg-[#f5f5f7] border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-[15px] placeholder-gray-400 font-medium"></div>
+                <div><input type="password" placeholder="Password" id="loginPass" class="w-full px-5 py-4 rounded-2xl bg-[#f5f5f7] border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-[15px] placeholder-gray-400 font-medium"></div>
+                <button onclick="handleLogin()" id="loginBtn" class="w-full bg-[#0071e3] text-white py-4 rounded-full font-bold text-[15px] hover:bg-[#0077ed] transition shadow-lg shadow-blue-500/20 mt-4 flex justify-center items-center h-[56px]">登 录</button>
+            </div>
+            <div class="mt-8 flex justify-between items-center text-xs font-medium"><a href="#" onclick="goToPage('landing')" class="text-[#0071e3] hover:underline">← 返回首页</a></div>
+        </div>
+    </main>
+
+    <!-- Tag Modal (Galaxy Zoom) -->
+    <div id="tagModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm transition-opacity opacity-0" id="modalBackdrop" onclick="closeModal()"></div>
+        <div class="absolute inset-x-0 bottom-0 md:top-20 md:bottom-auto md:max-w-4xl md:mx-auto md:rounded-2xl bg-white dark:bg-[#1a1a1a] shadow-2xl overflow-hidden flex flex-col h-[85vh] transition-transform transform translate-y-full opacity-0" id="modalContent">
+            
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-md z-10 flex-shrink-0">
+                <div><h3 class="text-lg font-bold text-gray-900 dark:text-white">探索你的宇宙</h3><p class="text-xs text-gray-500">点击标签下钻，点击空白处返回。</p></div>
+                <button onclick="closeModal()" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition">✕</button>
+            </div>
+            
+            <!-- Galaxy Playground -->
+            <div id="tagPlayground" class="relative flex-1 bg-[#fbfbfd] dark:bg-[#111] overflow-hidden cursor-move touch-none">
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+                    <svg class="w-64 h-64 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                </div>
+            </div>
+
+            <!-- Collection Dock -->
+            <div class="w-full bg-white dark:bg-[#1a1a1a] border-t border-gray-100 dark:border-gray-800 flex flex-col z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+                <div class="px-4 py-3 border-b border-gray-50 dark:border-gray-800 overflow-x-auto whitespace-nowrap min-h-[56px] flex items-center gap-2" id="collectedTagsBar">
+                    <span class="text-xs text-gray-400 italic pl-2" id="emptyHint">点击上方气泡，捕获你的兴趣...</span>
+                </div>
+                <div class="p-4 flex justify-between items-center">
+                    <div class="flex items-center gap-3 pl-2">
+                        <span class="text-xs font-bold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded">已捕获 <span id="selectedCount">0</span></span>
+                        <button onclick="resetPlayground()" class="text-xs text-gray-400 hover:text-black dark:hover:text-white underline">重置</button>
+                    </div>
+                    <button id="finishBtn" class="bg-gray-200 dark:bg-gray-700 text-gray-400 px-8 py-2.5 rounded-full font-bold text-sm transition-all disabled:cursor-not-allowed" disabled onclick="finishSelection()">生成画像</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals (Algo, Info, Chat) -->
+    <div id="algoModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-md transition-opacity opacity-0" id="algoBackdrop" onclick="closeAlgoModal()"></div>
+        <div class="absolute inset-x-0 bottom-0 md:top-20 md:bottom-auto md:max-w-2xl md:mx-auto md:rounded-3xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-transform transform translate-y-full opacity-0" id="algoContent">
+            <div class="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-white/90 backdrop-blur-xl z-10 sticky top-0">
+                <h3 class="text-xl font-bold text-[#1d1d1f]" id="infoTitle">白盒匹配模型</h3>
+                <button onclick="closeAlgoModal()" class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition">✕</button>
+            </div>
+            <div class="p-8 overflow-y-auto bg-[#fbfbfd]">
+                <div class="mb-8"><h4 class="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> 核心公式</h4><div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm font-mono text-sm text-gray-600 leading-relaxed overflow-x-auto"><div class="flex items-center gap-2 mb-2 text-xs text-gray-400 uppercase tracking-widest">Compatibility Score</div><div class="text-lg text-gray-900 font-bold">S = Σ(w₁·Tags) + Σ(w₂·Cluster) + Σ(w₃·Geo)</div></div><p class="text-xs text-gray-500 mt-3 leading-relaxed">匹配分数 <span class="font-mono">S</span> 是由三个维度的加权和构成的：直接标签命中、同属圈层命中以及地理位置/生活方式的接近度。</p></div>
+                <div class="mb-8 space-y-4"><h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> 权重解析</h4><div class="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100"><div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-lg">🎯</div><div class="flex-1"><div class="flex justify-between text-sm mb-1"><span class="font-bold text-gray-900">硬匹配 (Tags)</span><span class="font-mono text-blue-600">40%</span></div><div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden"><div class="bg-blue-500 h-full w-[40%]"></div></div><p class="text-[10px] text-gray-500 mt-1">完全一致的标签（如：都选了“三体”）。</p></div></div><div class="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100"><div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center text-lg">🧬</div><div class="flex-1"><div class="flex justify-between text-sm mb-1"><span class="font-bold text-gray-900">圈层共鸣 (Cluster)</span><span class="font-mono text-purple-600">35%</span></div><div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden"><div class="bg-purple-500 h-full w-[35%]"></div></div><p class="text-[10px] text-gray-500 mt-1">同属一类但不完全相同（如：“流浪地球”与“星际穿越”同属科幻圈）。</p></div></div><div class="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-100"><div class="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center text-lg">📍</div><div class="flex-1"><div class="flex justify-between text-sm mb-1"><span class="font-bold text-gray-900">基础属性 (Base)</span><span class="font-mono text-orange-600">25%</span></div><div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden"><div class="bg-orange-500 h-full w-[25%]"></div></div><p class="text-[10px] text-gray-500 mt-1">地理位置、年龄段、MBTI 维度的互补性。</p></div></div></div>
+                <div class="bg-gray-50 rounded-2xl p-6 text-center"><p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-2">PRIVACY GUARANTEE</p><p class="text-sm text-gray-600">所有计算均在本地或加密环境中完成。<br>敏感标签（如健康状况）绝不参与公开权重的计算。</p></div><div class="h-10"></div>
+            </div>
+        </div>
+    </div>
+    <div id="infoModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-md transition-opacity opacity-0" id="infoBackdrop" onclick="closeInfoModal()"></div>
+        <div class="absolute inset-x-0 bottom-0 md:top-20 md:bottom-auto md:max-w-2xl md:mx-auto md:rounded-3xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transition-transform transform translate-y-full opacity-0" id="infoContent">
+            <div class="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-white/90 backdrop-blur-xl z-10 sticky top-0">
+                <h3 class="text-xl font-bold text-[#1d1d1f]" id="infoTitle">标题</h3>
+                <button onclick="closeInfoModal()" class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition">✕</button>
+            </div>
+            <div class="p-8 overflow-y-auto bg-[#fbfbfd] text-sm leading-relaxed text-gray-600 dark:text-gray-300" id="infoBody"></div>
+        </div>
+    </div>
+    <div id="messageDock" class="fixed bottom-8 left-1/2 -translate-x-1/2 translate-y-[150%] transition-all duration-500 z-50 cursor-pointer" onclick="openChatModal()">
+        <div class="glass flex items-center gap-4 px-2 py-2 pr-6 rounded-full shadow-2xl border border-white/40 dark:border-white/10 hover:scale-105 transition-transform">
+            <div class="relative"><div class="w-12 h-12 rounded-full overflow-hidden border border-white dark:border-gray-700"><img id="dockAvatar" src="" class="w-full h-full object-cover"></div><span class="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-bounce"></span></div>
+            <div class="text-left"><h4 id="dockName" class="text-sm font-bold text-[#1d1d1f] dark:text-white">Name</h4><p class="text-xs text-gray-500">发来了一条新消息...</p></div>
+        </div>
+    </div>
+    <div id="chatModal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-white/10 dark:bg-black/40 backdrop-blur-3xl transition-opacity duration-500 opacity-0" id="chatBackdrop" onclick="closeChatModal()"></div>
+        <div class="absolute inset-x-0 bottom-0 top-20 md:top-24 md:bottom-24 md:max-w-2xl md:mx-auto flex flex-col transition-transform duration-500 translate-y-full" id="chatContent">
+            <div class="px-6 py-4 flex justify-between items-center relative z-10">
+                <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full overflow-hidden border border-white/50 dark:border-white/10 shadow-md"><img id="chatHeaderAvatar" src="" class="w-full h-full object-cover"></div><div><h3 id="chatHeaderName" class="text-lg font-bold text-[#1d1d1f] dark:text-white">Name</h3><div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span><span class="text-xs text-gray-500 font-medium">刚刚活跃</span></div></div></div>
+                <button onclick="closeChatModal()" class="w-10 h-10 bg-white/50 dark:bg-black/50 hover:bg-white dark:hover:bg-black rounded-full flex items-center justify-center backdrop-blur-md transition shadow-sm">✕</button>
+            </div>
+            <div class="flex-1 overflow-y-auto px-6 py-4 space-y-6" id="chatMessages"></div>
+            <div class="p-6"><div class="glass rounded-[2rem] p-2 flex items-center gap-2 shadow-2xl border border-white/50 dark:border-white/10"><input type="text" placeholder="输入消息..." class="flex-1 bg-transparent border-none outline-none text-sm px-4 py-2 text-gray-800 dark:text-gray-200 placeholder-gray-400 font-medium" onkeydown="if(event.key === 'Enter') sendUserMessage(this)"><button class="w-10 h-10 rounded-full bg-[#0071e3] text-white flex items-center justify-center shadow-lg hover:scale-105 transition" onclick="sendUserMessage(this.previousElementSibling)">↑</button></div></div>
+        </div>
+    </div>
+
+<script>
+    try {
+        window.addEventListener('load', () => {
+            if (localStorage.getItem('tm_isLoggedIn') === 'true') { isLoggedIn = true; updateNavState(); }
+            window.addEventListener('scroll', () => { const winScroll = document.body.scrollTop || document.documentElement.scrollTop; const height = document.documentElement.scrollHeight - document.documentElement.clientHeight; const scrolled = (winScroll / height) * 100; document.getElementById('scroll-progress').style.width = scrolled + "%"; });
+        });
+
+        // --- Logic: Galaxy Zoom (v1.8 Core) ---
+        const tagGraph = {
+            'ROOT': ['游戏', '科技', '生活', '影音', '性格'],
+            '游戏': ['Steam', 'Switch', '英雄联盟', '黑神话', '原神', 'CS:GO', '独立游戏'],
+            'Steam': ['Rogue', '模拟经营', '动作', '成就党'],
+            'Switch': ['塞尔达', '马里奥', '动森', '健身环'],
+            '英雄联盟': ['大乱斗', '云顶之弈', '电竞', 'LPL'],
+            '科技': ['AI', '编程', 'Apple', '数码', 'Web3'],
+            '编程': ['Python', 'Rust', '前端', 'GitHub'],
+            '生活': ['旅行', '咖啡', '运动', '美食', '撸猫'],
+            '咖啡': ['手冲', '探店', '星巴克', '拿铁'],
+            '影音': ['电影', '后摇', '播客', 'Netflix'],
+            '电影': ['诺兰', '王家卫', '科幻', '悬疑'],
+            '性格': ['INTP', 'INTJ', 'ENFP', '社恐', '慢热']
+        };
+        
+        let selectedTags = new Set();
+        let currentLevel = 'ROOT';
+        const playground = document.getElementById('tagPlayground');
+        const collectedBar = document.getElementById('collectedTagsBar');
+        
+        // Container for Zoom Transform
+        let galaxyContainer = document.createElement('div');
+        galaxyContainer.className = "absolute inset-0 transition-transform duration-700 ease-in-out origin-center will-change-transform";
+        playground.appendChild(galaxyContainer);
+
+        // Click empty space to Zoom Out
+        playground.onclick = (e) => { if (e.target === playground || e.target === galaxyContainer) resetView(); };
+
+        function initPlayground() {
+            galaxyContainer.innerHTML = '';
+            const decor = document.createElement('div'); decor.className = "absolute inset-0 flex items-center justify-center pointer-events-none opacity-5"; decor.innerHTML = `<svg class="w-64 h-64 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>`; galaxyContainer.appendChild(decor);
+            spawnGalaxy('ROOT', playground.offsetWidth / 2, playground.offsetHeight / 2);
+        }
+
+        function spawnGalaxy(rootKey, centerX, centerY) {
+            const children = tagGraph[rootKey] || [];
+            const radius = 140; // Base Radius
+            children.forEach((tag, i) => {
+                const angle = (i / children.length) * Math.PI * 2;
+                const x = centerX + Math.cos(angle) * radius - 40; 
+                const y = centerY + Math.sin(angle) * radius - 20;
+                createBubble(tag, x, y, rootKey);
+            });
+            // Center Star (Parent)
+            if (rootKey !== 'ROOT') createBubble(rootKey, centerX - 50, centerY - 25, 'CENTER', true);
+        }
+
+        function createBubble(tag, x, y, parentKey, isCenter = false) {
+            const bubble = document.createElement('div');
+            let baseClass = 'absolute flex items-center justify-center rounded-full shadow-lg cursor-pointer select-none transition-all duration-500 bubble-pop-in border';
+            if (isCenter) baseClass += ' w-24 h-24 text-lg font-bold z-20 bg-black text-white dark:bg-white dark:text-black border-transparent shadow-blue-500/50';
+            else baseClass += ' px-5 py-2.5 text-sm font-bold z-10 bg-white dark:bg-[#252525] text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500';
+            
+            // Selected State (Highlight)
+            if (selectedTags.has(tag)) baseClass += ' ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-black';
+            bubble.className = baseClass; bubble.innerText = tag; bubble.style.left = `${x}px`; bubble.style.top = `${y}px`;
+            
+            bubble.onclick = (e) => {
+                e.stopPropagation();
+                toggleCollection(tag, bubble); // Select
+                if (!isCenter && tagGraph[tag]) enterGalaxy(tag, x, y); // Zoom In
+            };
+            galaxyContainer.appendChild(bubble);
+        }
+
+        function enterGalaxy(tag, focusX, focusY) {
+            currentLevel = tag;
+            const containerCenterW = playground.offsetWidth / 2; const containerCenterH = playground.offsetHeight / 2;
+            const deltaX = containerCenterW - (focusX + 40); const deltaY = containerCenterH - (focusY + 20);
+            
+            // Zoom In Animation
+            galaxyContainer.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.5)`;
+            galaxyContainer.style.opacity = '0';
+
+            setTimeout(() => {
+                galaxyContainer.innerHTML = '';
+                galaxyContainer.style.transition = 'none';
+                galaxyContainer.style.transform = 'scale(0.8)';
+                spawnGalaxy(tag, containerCenterW, containerCenterH);
+                requestAnimationFrame(() => {
+                    galaxyContainer.style.transition = 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease';
+                    galaxyContainer.style.opacity = '1'; galaxyContainer.style.transform = 'scale(1)';
+                });
+            }, 300);
+        }
+
+        function resetView() {
+            if (currentLevel === 'ROOT') return;
+            currentLevel = 'ROOT';
+            // Zoom Out Animation
+            galaxyContainer.style.transform = 'scale(0.5)'; galaxyContainer.style.opacity = '0';
+            setTimeout(() => {
+                galaxyContainer.innerHTML = '';
+                const centerW = playground.offsetWidth / 2; const centerH = playground.offsetHeight / 2;
+                const decor = document.createElement('div'); decor.className = "absolute inset-0 flex items-center justify-center pointer-events-none opacity-5"; decor.innerHTML = `<svg class="w-64 h-64 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>`; galaxyContainer.appendChild(decor);
+                spawnGalaxy('ROOT', centerW, centerH);
+                requestAnimationFrame(() => { galaxyContainer.style.opacity = '1'; galaxyContainer.style.transform = 'scale(1)'; });
+            }, 300);
+        }
+
+        function toggleCollection(tag, bubbleEl) {
+            if (selectedTags.has(tag)) {
+                selectedTags.delete(tag);
+                bubbleEl.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500', 'dark:ring-offset-black');
+                removeFromDock(tag);
+            } else {
+                selectedTags.add(tag);
+                bubbleEl.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500', 'dark:ring-offset-black');
+                addToDock(tag);
+            }
+            updateUI();
+        }
+
+        function addToDock(tag) {
+            document.getElementById('emptyHint').style.display = 'none';
+            const dockItem = document.createElement('div');
+            dockItem.id = `dock-tag-${tag}`;
+            dockItem.className = 'inline-flex items-center gap-1 bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-full text-xs font-bold shadow-md mr-2 animate-[popIn_0.3s_ease]';
+            dockItem.innerHTML = `${tag} <span onclick="removeTagGlobal('${tag}')" class="cursor-pointer opacity-50 hover:opacity-100 ml-1">×</span>`;
+            collectedBar.appendChild(dockItem); collectedBar.scrollLeft = collectedBar.scrollWidth;
+        }
+
+        function removeFromDock(tag) {
+            const item = document.getElementById(`dock-tag-${tag}`);
+            if (item) item.remove();
+            if (selectedTags.size === 0) document.getElementById('emptyHint').style.display = 'block';
+        }
+
+        window.removeTagGlobal = function(tag) {
+            selectedTags.delete(tag); removeFromDock(tag);
+            // Sync with current galaxy view
+            const bubbles = galaxyContainer.children;
+            for (let b of bubbles) { if (b.innerText === tag) b.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500', 'dark:ring-offset-black'); }
+            updateUI();
+        }
+
+        window.resetPlayground = function() { selectedTags.clear(); collectedBar.innerHTML = '<span class="text-xs text-gray-400 italic pl-2" id="emptyHint">点击上方气泡，捕获你的兴趣...</span>'; updateUI(); resetView(); }
+        function updateUI() { const count = selectedTags.size; document.getElementById('selectedCount').innerText = count; const btn = document.getElementById('finishBtn'); if (count > 0) { btn.disabled = false; btn.className = 'bg-[#0071e3] text-white px-8 py-2.5 rounded-full font-bold text-sm transition-all shadow-lg hover:bg-[#0077ed] transform hover:scale-[1.02]'; btn.innerText = `开始匹配 (${count})`; } else { btn.disabled = true; btn.className = 'bg-gray-200 dark:bg-gray-700 text-gray-400 px-8 py-2.5 rounded-full font-bold text-sm transition-all disabled:cursor-not-allowed'; btn.innerText = '生成画像'; } }
+        
+        // --- 3D Sphere (Restored) ---
+        const sphereTags = ['三体', '英雄联盟', 'INTP', '摄影', '留学', '诺兰', '猫', '后摇', 'Switch', '黑神话', 'AI', 'Python', '旅行', '咖啡', '露营', '健身', '滑雪', '赛博朋克', '胶片', 'Vlog', '探店', '剧本杀', 'Livehouse', '原神', 'Minecraft', 'Apple', 'K-Pop', '二次元', '搞钱', '躺平', '内卷', '玄学', 'MBTI', '流浪地球', '星际穿越', '权力的游戏', '脱口秀', '播客', '爵士', '嘻哈', '产品经理', '独立开发', 'Web3', '特斯拉', 'F1', 'NBA', '足球', '冲浪', '瑜伽', '普拉提', '冥想', '心理学', '哲学', '历史', '科幻', '悬疑', '恐怖片', '治愈', '极简主义', 'Vintage', '穿搭', '球鞋', '盲盒', '手办', '乐高', '高达', '主机游戏', 'Rust', 'Go', 'React', 'Vue', 'Design System', 'Figma', 'UI/UX', 'Notion', 'Obsidian', '效率', 'GTD', '数字游民', '远程工作', '创业', '搞钱', '理财', '基金', '美股', '咖啡探店', '精酿啤酒', '威士忌', '鸡尾酒', '日料', '火锅', '烧烤', '烘焙', '做饭', '减脂餐', '网球', '羽毛球', '乒乓球', '骑行', '马拉松', '铁人三项', '攀岩', '徒步', '钓鱼', '古典音乐', '电子音乐', 'Techno', 'House', 'R&B', 'K-Indie', 'CityPop', '黑胶', '吉他', '钢琴', '架子鼓', '王家卫', '昆汀', '韦斯安德森', '是枝裕和', '杨德昌', '李安', '大卫芬奇', '美剧', '英剧', '日剧', '韩剧', '动漫', '村上春树', '东野圭吾', '刘慈欣', '博尔赫斯', '卡夫卡', '心理学', '社会学', '经济学', '猫', '狗', '柯基', '柴犬', '布偶', '英短', '美短', '爬宠', '植物', '多肉', 'GTA6', '塞尔达', '马里奥', '宝可梦', 'Apex', 'CS2', 'Valorant', 'DOTA2', '星露谷', '动森', '哈利波特', '指环王', '星球大战', '漫威', 'DC', '乐高', '高达', '模型', '手办'];
+        const sphereContainer = document.getElementById('sphere-container'); const sphereTagEls = []; const sphereRadius = 300; let rotationX = 0; let rotationY = 0; let velocityX = 0.2; let velocityY = 0.2; let isDragging = false; let lastMouseX = 0; let lastMouseY = 0;
+        function initSphere() { const displayTags = sphereTags.slice(0, 50); const count = displayTags.length; const goldenAngle = Math.PI * (3 - Math.sqrt(5)); for (let i = 0; i < count; i++) { const el = document.createElement('div'); el.className = 'sphere-tag'; el.innerText = displayTags[i]; sphereContainer.appendChild(el); const y = 1 - (i / (count - 1)) * 2; const r = Math.sqrt(1 - y * y); const theta = goldenAngle * i; const x = Math.cos(theta) * r; const z = Math.sin(theta) * r; sphereTagEls.push({ el, x: x * sphereRadius, y: y * sphereRadius, z: z * sphereRadius }); } }
+        function renderLoop() { if (!isDragging) { velocityX *= 0.96; velocityY *= 0.96; if (Math.abs(velocityX) < 0.02) velocityX = 0.05; if (Math.abs(velocityY) < 0.02) velocityY = 0.05; } rotationY += velocityX * 0.01; rotationX -= velocityY * 0.01; const cosX = Math.cos(rotationX); const sinX = Math.sin(rotationX); const cosY = Math.cos(rotationY); const sinY = Math.sin(rotationY); sphereTagEls.forEach(tag => { let x1 = tag.x * cosY - tag.z * sinY; let z1 = tag.z * cosY + tag.x * sinY; let y2 = tag.y * cosX - z1 * sinX; let z2 = z1 * cosX + tag.y * sinX; const scale = 1000 / (1000 - z2); const alpha = (z2 + sphereRadius) / (2 * sphereRadius); tag.el.style.transform = `translate3d(${x1}px, ${y2}px, ${z2}px) scale(${scale})`; tag.el.style.opacity = Math.max(0.1, alpha); tag.el.style.zIndex = Math.floor(z2); }); requestAnimationFrame(renderLoop); }
+        sphereContainer.addEventListener('pointerdown', (e) => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; velocityX = 0; velocityY = 0; sphereContainer.style.cursor = 'grabbing'; }); window.addEventListener('pointermove', (e) => { if (!isDragging) return; e.preventDefault(); const deltaX = e.clientX - lastMouseX; const deltaY = e.clientY - lastMouseY; lastMouseX = e.clientX; lastMouseY = e.clientY; velocityX = deltaX * 0.3; velocityY = deltaY * 0.3; }); window.addEventListener('pointerup', () => { isDragging = false; sphereContainer.style.cursor = 'grab'; }); initSphere(); renderLoop();
+
+        // --- Logic: Particles ---
+        const bgCanvas = document.getElementById('bg-canvas'); if (bgCanvas) { const bgCtx = bgCanvas.getContext('2d'); let particles = []; const particleCount = window.innerWidth < 768 ? 40 : 80; function resizeBg() { bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight; } window.addEventListener('resize', resizeBg); resizeBg(); class Particle { constructor() { this.x = Math.random() * bgCanvas.width; this.y = Math.random() * bgCanvas.height; this.vx = (Math.random() - 0.5) * 0.5; this.vy = (Math.random() - 0.5) * 0.5; this.size = Math.random() * 2 + 1; } update() { this.x += this.vx; this.y += this.vy; if (this.x < 0 || this.x > bgCanvas.width) this.vx *= -1; if (this.y < 0 || this.y > bgCanvas.height) this.vy *= -1; } draw() { const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; bgCtx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.1)'; bgCtx.beginPath(); bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2); bgCtx.fill(); } } for (let i = 0; i < particleCount; i++) particles.push(new Particle()); function animateBg() { bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height); const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; particles.forEach((p, index) => { p.update(); p.draw(); for (let j = index + 1; j < particles.length; j++) { const p2 = particles[j]; const dist = Math.hypot(p.x - p2.x, p.y - p2.y); if (dist < 150) { bgCtx.strokeStyle = isDark ? `rgba(255, 255, 255, ${0.15 * (1 - dist / 150)})` : `rgba(0, 0, 0, ${0.05 * (1 - dist / 150)})`; bgCtx.lineWidth = 1; bgCtx.beginPath(); bgCtx.moveTo(p.x, p.y); bgCtx.lineTo(p2.x, p2.y); bgCtx.stroke(); } } }); requestAnimationFrame(animateBg); } animateBg(); }
+
+        // --- Standard Functions ---
+        const pages = ['landing', 'login', 'match']; let isLoggedIn = false;
+        window.goToPage = function(pageId) { pages.forEach(id => { const el = document.getElementById(`page-${id}`); if (!el.classList.contains('hidden')) { el.classList.add('page-exit'); setTimeout(() => { el.classList.add('hidden'); el.classList.remove('page-exit'); }, 400); } }); const target = document.getElementById(`page-${pageId}`); setTimeout(() => { target.classList.remove('hidden'); target.classList.add('page-enter'); window.scrollTo(0,0); }, 400); }
+        window.handleLogin = function() { const btn = document.getElementById('loginBtn'); btn.innerHTML = '登录中...'; setTimeout(() => { isLoggedIn = true; localStorage.setItem('tm_isLoggedIn', 'true'); updateNavState(); goToPage('landing'); btn.innerHTML = '登 录'; }, 1500); }
+        function updateNavState() { if (isLoggedIn) { document.getElementById('nav-login-link').classList.add('hidden'); document.getElementById('nav-user-profile').classList.remove('hidden'); document.getElementById('nav-user-profile').classList.add('flex'); } }
+        window.smoothScroll = function(event, targetId) { event.preventDefault(); goToPage('landing'); setTimeout(() => { document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 500); }
+        const modal = document.getElementById('tagModal'); const backdrop = document.getElementById('modalBackdrop'); const content = document.getElementById('modalContent'); const algoModal = document.getElementById('algoModal'); const algoBackdrop = document.getElementById('algoBackdrop'); const algoContent = document.getElementById('algoContent'); const infoModal = document.getElementById('infoModal'); const infoBackdrop = document.getElementById('infoBackdrop'); const infoContentWrapper = document.getElementById('infoContent'); const infoTitle = document.getElementById('infoTitle'); const infoBody = document.getElementById('infoBody');
+        window.openModal = function() { modal.classList.remove('hidden'); setTimeout(() => { backdrop.classList.remove('opacity-0'); content.classList.remove('translate-y-full', 'opacity-0'); content.classList.add('modal-enter'); initPlayground(); }, 10); }
+        window.closeModal = function() { backdrop.classList.add('opacity-0'); content.classList.remove('modal-enter'); content.classList.add('modal-exit'); setTimeout(() => { modal.classList.add('hidden'); content.classList.remove('modal-exit'); content.classList.add('translate-y-full', 'opacity-0'); }, 300); }
+        window.openAlgoModal = function() { algoModal.classList.remove('hidden'); setTimeout(() => { algoBackdrop.classList.remove('opacity-0'); algoContent.classList.remove('translate-y-full', 'opacity-0'); algoContent.classList.add('modal-enter'); }, 10); }
+        window.closeAlgoModal = function() { algoBackdrop.classList.add('opacity-0'); algoContent.classList.remove('modal-enter'); algoContent.classList.add('modal-exit'); setTimeout(() => { algoModal.classList.add('hidden'); algoContent.classList.remove('modal-exit'); algoContent.classList.add('translate-y-full', 'opacity-0'); }, 300); }
+        const infoData = {
+            privacy: { 
+                title: "隐私政策 (Privacy Policy)", 
+                content: `<div class="space-y-8"><div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800"><p class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">OUR PROMISE</p><p class="text-sm text-blue-800 dark:text-blue-200 font-medium">你的数据属于你。TagMatch 的商业模式建立在增值服务上，而非贩卖隐私。</p></div><div><h4 class="text-lg font-bold text-gray-900 dark:text-white mb-3">1. 我们收集的信息</h4><ul class="list-disc pl-5 space-y-2 marker:text-gray-400"><li><strong>账号信息：</strong> 仅限注册所需的 Email 和加密后的密码哈希。</li><li><strong>画像标签：</strong> 你主动选择的兴趣、MBTI、生活方式标签。</li><li><strong>设备数据：</strong> 仅用于适配界面的屏幕分辨率和系统主题，不收集 IMEI 或 MAC 地址。</li></ul></div><div><h4 class="text-lg font-bold text-gray-900 dark:text-white mb-3">2. 敏感数据处理</h4><p class="mb-3">对于涉及<strong>健康、性取向、宗教信仰</strong>的敏感标签，我们采用默认私密策略。</p><div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg"><div class="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600">🔒</div><div class="text-xs text-gray-600 dark:text-gray-400"><strong>端侧加密：</strong> 除非你显式授权，否则不会参与公开匹配计算。</div></div></div><div><h4 class="text-lg font-bold text-gray-900 dark:text-white mb-3">3. 数据存储与安全</h4><p>所有数据传输均通过 <strong>TLS 1.3</strong> 加密。我们的数据库部署在符合 SOC2 标准的云端。</p></div></div>` 
+            },
+            terms: { 
+                title: "使用条款 (Terms of Service)", 
+                content: `<div class="space-y-6"><p class="text-sm opacity-80">生效日期：2026年2月1日</p><div><h4 class="font-bold text-gray-900 dark:text-white mb-2">1. 社区准则</h4><p class="mb-2">TagMatch 致力于构建一个高质量的同频社交网络。你同意<strong>不</strong>从事以下行为：</p><ul class="space-y-2 text-sm"><li class="flex gap-2"><span class="text-red-500">✕</span> 发布仇恨言论、歧视、霸凌或骚扰内容。</li><li class="flex gap-2"><span class="text-red-500">✕</span> 冒充他人或使用虚假照片误导社区。</li></ul></div><div><h4 class="font-bold text-gray-900 dark:text-white mb-2">2. 账号责任</h4><p>你需要妥善保管你的账号密码。对于因账号被盗导致的任何损失，TagMatch 免责。</p></div><div class="border-t border-gray-100 dark:border-gray-800 pt-6 mt-6"><p class="text-xs text-gray-400 text-center">继续使用本服务即表示你已阅读并同意上述条款。</p></div></div>` 
+            },
+            contact: { 
+                title: "联系我们", 
+                content: `<div class="flex flex-col items-center justify-center py-8 space-y-8"><div class="relative group cursor-pointer"><div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-200"></div><div class="relative w-20 h-20 bg-white dark:bg-[#202020] rounded-full flex items-center justify-center text-4xl shadow-xl">📬</div></div><div class="text-center space-y-2"><h4 class="text-xl font-bold text-gray-900 dark:text-white">我们乐意倾听</h4><p class="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto">无论是产品反馈、Bug 汇报，还是想要加入我们，随时欢迎来信。</p></div><div class="w-full max-w-sm space-y-3"><a href="mailto:hello@tagmatch.com" class="flex items-center justify-center gap-3 w-full bg-black dark:bg-white text-white dark:text-black py-3.5 rounded-xl font-bold transition transform hover:scale-[1.02] active:scale-[0.98]">发送邮件</a></div><div class="text-center pt-8 border-t border-gray-100 dark:border-gray-800 w-full opacity-60"><p class="text-xs font-bold uppercase tracking-widest mb-1">HQ ADDRESS</p><p class="text-xs">1055 Dunsmuir St, Vancouver, BC V7X 1L2</p></div></div>` 
+            }
+        };
+        window.openInfoModal = function(type) { const data = infoData[type]; if(!data) return; infoTitle.innerText = data.title; infoBody.innerHTML = data.content; infoModal.classList.remove('hidden'); setTimeout(() => { infoBackdrop.classList.remove('opacity-0'); infoContentWrapper.classList.remove('translate-y-full', 'opacity-0'); }, 10); }
+        window.closeInfoModal = function() { infoBackdrop.classList.add('opacity-0'); infoContentWrapper.classList.add('translate-y-full', 'opacity-0'); setTimeout(() => { infoModal.classList.add('hidden'); }, 300); }
+        window.handleSayHello = function(btn, name, mbti) { btn.disabled = true; btn.innerHTML = '发送中...'; setTimeout(() => { btn.innerHTML = '已发送 ✓'; btn.className = 'relative z-10 w-full py-3.5 rounded-full font-bold text-sm bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-100 dark:border-green-800 cursor-default'; triggerReplySimulation(name, mbti); }, 800); }
+        function triggerReplySimulation(name, mbti) { setTimeout(() => { document.getElementById('dockName').innerText = name; document.getElementById('dockAvatar').src = `https://api.dicebear.com/7.x/notionists/svg?seed=${name}&backgroundColor=e5e7eb`; currentChatUser = { name, avatar: document.getElementById('dockAvatar').src }; currentChatMbti = mbti; document.getElementById('messageDock').classList.remove('translate-y-[150%]'); document.getElementById('messageDock').classList.add('translate-y-0'); }, 1500); }
+        window.openChatModal = function() { document.getElementById('messageDock').classList.add('translate-y-[150%]'); document.getElementById('chatHeaderName').innerText = currentChatUser.name; document.getElementById('chatHeaderAvatar').src = currentChatUser.avatar; document.getElementById('chatMessages').innerHTML = ''; let greeting = `Hi! 刚才看到系统推荐，感觉我们兴趣挺像的 👋`; if (currentChatMbti === 'ENTP') greeting = '嘿！大数据说我们是绝配，来聊聊？😏'; if (currentChatMbti === 'INFJ') greeting = '你好... 看到你的标签，感觉我们可能是一类人。'; addMessage('received', greeting); document.getElementById('chatModal').classList.remove('hidden'); setTimeout(() => { document.getElementById('chatBackdrop').classList.remove('opacity-0'); document.getElementById('chatContent').classList.remove('translate-y-full'); }, 10); }
+        window.closeChatModal = function() { document.getElementById('chatBackdrop').classList.add('opacity-0'); document.getElementById('chatContent').classList.add('translate-y-full'); setTimeout(() => { document.getElementById('chatModal').classList.add('hidden'); }, 500); }
+        function addMessage(type, text) { const container = document.getElementById('chatMessages'); const div = document.createElement('div'); if (type === 'received') { div.className = 'flex items-end gap-3 msg-enter'; div.innerHTML = `<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-white/50 dark:border-white/10"><img src="${currentChatUser.avatar}" class="w-full h-full object-cover"></div><div class="bubble-received px-4 py-2.5 max-w-[75%] text-[15px] leading-relaxed shadow-sm">${text}</div>`; } else { div.className = 'flex justify-end msg-enter'; div.innerHTML = `<div class="bubble-sent px-4 py-2.5 max-w-[75%] text-[15px] leading-relaxed">${text}</div>`; } container.appendChild(div); container.scrollTop = container.scrollHeight; }
+        window.sendUserMessage = function(input) { const text = input.value; if (!text.trim()) return; addMessage('sent', text); input.value = ''; setTimeout(() => { let reply = '太巧了，我也这么觉得！☕️'; if (currentChatMbti === 'ENTP') reply = '哈哈，看来你很有品味。周末要不要出来 Battle 一下？😎'; if (currentChatMbti === 'INFJ') reply = '嗯... 这种感觉很难得。有机会我们可以深聊。✨'; addMessage('received', reply); }, 2000); }
+        window.handleSpotlight = function(e, card) { const rect = card.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; card.style.setProperty('--mouse-x', `${x}px`); card.style.setProperty('--mouse-y', `${y}px`); }
+        window.drawRadar = function(canvasId, stats) { const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d'); const width = canvas.width; const height = canvas.height; const centerX = width / 2; const centerY = height / 2; const radius = (width / 2) - 10; ctx.clearRect(0, 0, width, height); const sides = 5; const angleStep = (Math.PI * 2) / sides; ctx.strokeStyle = 'rgba(156, 163, 175, 0.2)'; ctx.lineWidth = 1; for (let r = 0.2; r <= 1; r += 0.2) { ctx.beginPath(); for (let i = 0; i <= sides; i++) { const angle = i * angleStep - Math.PI / 2; const x = centerX + Math.cos(angle) * radius * r; const y = centerY + Math.sin(angle) * radius * r; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.stroke(); } ctx.fillStyle = 'rgba(0, 113, 227, 0.2)'; ctx.strokeStyle = '#0071e3'; ctx.lineWidth = 2; ctx.beginPath(); stats.forEach((val, i) => { const angle = i * angleStep - Math.PI / 2; const x = centerX + Math.cos(angle) * radius * val; const y = centerY + Math.sin(angle) * radius * val; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+        function showSkeletons() { const container = document.getElementById('match-container'); container.innerHTML = ''; for(let i=0; i<4; i++) { const card = document.createElement('div'); card.className = 'bg-white dark:bg-[#151515] rounded-[32px] p-6 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col gap-4'; card.innerHTML = `<div class="flex items-center gap-4"><div class="w-16 h-16 rounded-2xl skeleton bg-gray-200 dark:bg-gray-800"></div><div class="flex-1 space-y-2"><div class="h-4 w-24 skeleton bg-gray-200 dark:bg-gray-800 rounded"></div><div class="h-3 w-16 skeleton bg-gray-200 dark:bg-gray-800 rounded"></div></div></div><div class="h-16 w-full skeleton bg-gray-200 dark:bg-gray-800 rounded-xl"></div><div class="h-20 w-full skeleton bg-gray-200 dark:bg-gray-800 rounded-xl"></div><div class="h-12 w-full skeleton bg-gray-200 dark:bg-gray-800 rounded-full mt-auto"></div>`; container.appendChild(card); } }
+        function generateMatches(userTags) {
+            const container = document.getElementById('match-container');
+            container.innerHTML = ''; 
+            
+            const mockUsers = [
+                { seed: 'Alex', name: 'Alex', school: 'U of T · CS', mbti: 'INTP', color: '#e5e7eb', intro: "平时喜欢宅在家里打游戏，或者是去山上拍星空。", stats: [0.9, 0.8, 0.4, 0.7, 0.6] },
+                { seed: 'Zoey', name: 'Zoey', school: 'Emily Carr · Design', mbti: 'ENFP', color: '#ffdfbf', intro: "胶片摄影爱好者，周末常在温哥华街头扫街。", stats: [0.6, 0.9, 0.8, 0.9, 0.7] },
+                { seed: 'Ryan', name: 'Ryan', school: 'UBC · EE', mbti: 'INTJ', color: '#c0ebff', intro: "Steam 库里有 300+ 游戏。想找人一起打 LOL。", stats: [0.95, 0.7, 0.3, 0.6, 0.8] },
+                { seed: 'Luna', name: 'Luna', school: 'SFU · Media', mbti: 'ISFP', color: '#ffc9c9', intro: "后摇/民谣爱好者，喜欢收集黑胶唱片。", stats: [0.5, 0.6, 0.7, 0.9, 0.8] }
+            ];
+            
+            const pickedUsers = mockUsers.concat(mockUsers).sort(() => 0.5 - Math.random()).slice(0, 4);
+            document.getElementById('matchCount').innerText = pickedUsers.length;
+
+            pickedUsers.forEach((u, index) => {
+                const matchScore = 75 + Math.floor(Math.random() * 24);
+                let scoreColor = matchScore >= 90 ? '#00c950' : '#0071e3';
+                const commonTags = []; 
+                if (userTags.length > 0) commonTags.push(userTags[Math.floor(Math.random() * userTags.length)]); 
+                commonTags.push(sphereTags[Math.floor(Math.random() * sphereTags.length)]); 
+                const uniqueCommonTags = [...new Set(commonTags)].slice(0, 3);
+                
+                const card = document.createElement('div');
+                // Remove all animation classes, rely on JS transition
+                card.className = 'spotlight-card bg-white dark:bg-[#151515] dark:border-gray-800 rounded-[32px] p-6 shadow-xl shadow-gray-200/40 dark:shadow-none border border-gray-100 hover:scale-[1.01] transition-all duration-500 ease-out flex flex-col h-full';
+                
+                // Initial State: Invisible & Moved down
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                
+                card.onmousemove = (e) => handleSpotlight(e, card);
+                
+                card.innerHTML = `
+                    <div class="flex items-start justify-between mb-4 relative z-10">
+                        <div class="flex items-center gap-4">
+                            <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 overflow-hidden border border-gray-100 dark:border-gray-700 flex-shrink-0">
+                                <img src="https://api.dicebear.com/7.x/notionists/svg?seed=${u.seed + index}&backgroundColor=${u.color.replace('#','')}" class="w-full h-full object-cover">
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-[#1d1d1f] dark:text-white">${u.name}</h3>
+                                <p class="text-xs text-gray-500 font-medium mt-0.5">${u.school}</p>
+                                <div class="flex gap-1 mt-2">
+                                    <span class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded text-[10px] font-medium">${u.mbti}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-3xl font-bold tracking-tight" style="color: ${scoreColor}">${matchScore}%</div>
+                            <div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">灵魂共鸣</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 mb-6 relative z-10 flex-1">
+                        <div class="flex-1 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">"${u.intro}"</div>
+                        <div class="w-20 h-20 flex-shrink-0">
+                            <canvas id="radar-${index}" width="80" height="80"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-[#f5f5f7] dark:bg-[#1a1a1a] rounded-xl p-4 mb-6 relative z-10 mt-auto">
+                        <p class="text-xs text-gray-400 font-bold uppercase mb-2">WHY YOU MATCH</p>
+                        <div class="flex flex-wrap gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            ${uniqueCommonTags.map(t => `<span class="bg-white dark:bg-[#252525] px-2 py-0.5 rounded shadow-sm text-xs">${t}</span>`).join('')}
+                        </div>
+                    </div>
+                    <button onclick="handleSayHello(this, '${u.name}', '${u.mbti}')" class="relative z-10 w-full bg-[#1d1d1f] dark:bg-white text-white dark:text-black py-3.5 rounded-full font-bold text-sm hover:bg-gray-800 dark:hover:bg-gray-200 transition">打招呼</button>
+                `;
+                
+                container.appendChild(card);
+                
+                // JS Animation Trigger
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 100 + (index * 150)); // Stagger delay
+
+                setTimeout(() => drawRadar(`radar-${index}`, u.stats), 50);
+            });
+        }
+
+        window.finishSelection = function() {
+            const btn = document.getElementById('finishBtn');
+            btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white inline-block" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            setTimeout(() => { closeModal(); const tagArray = Array.from(selectedTags); document.getElementById('userTagsSummary').innerText = tagArray.slice(0, 3).join(', ') + (tagArray.length > 3 ? ` 等 ${tagArray.length} 个` : ''); goToPage('match'); showSkeletons(); setTimeout(() => generateMatches(tagArray), 1500); }, 500);
+        }
+
+    } catch (err) { console.error("Init Error:", err); alert("初始化错误: " + err.message); }
+</script>
