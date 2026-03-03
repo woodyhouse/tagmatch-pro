@@ -21,6 +21,4 @@ TagMatch Pro 是一款基于深度标签构建的精神画像匹配工具。它�
 
 只需在浏览器中打开 `index.html` 即可运行体验。
 
----
 
-*Powered by [OpenClaw](https://github.com/openclaw/openclaw)*
